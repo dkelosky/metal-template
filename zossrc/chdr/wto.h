@@ -92,7 +92,7 @@ typedef struct
     char msg[MAX_WTO_TEXT];
 } WTO_BUF;
 
-int wto(WTO_BUF *PTR32 buf)
+static int wto(WTO_BUF *PTR32 buf)
 {
     int rc = 0;
     WTO_MODEL(dsaWtoModel); // stack var
@@ -106,7 +106,7 @@ typedef struct
     char msg[MAX_WTOR_TEXT + 1];
 } WTOR_REPLY_BUF;
 
-int wtor(WTO_BUF *PTR32 buf, WTOR_REPLY_BUF *PTR32 reply, ECB *PTR32 ecb)
+static int wtor(WTO_BUF *PTR32 buf, WTOR_REPLY_BUF *PTR32 reply, ECB *PTR32 ecb)
 {
     int rc = 0;
     int replyLen = sizeof(WTOR_REPLY_BUF);
