@@ -4,6 +4,24 @@
 #include "ihaecb.h"
 #include "z.h"
 
+typedef void(TIMER_EXIT)(void *);
+typedef struct
+{
+  unsigned char value[4];
+} TIMER_ID;
+
+#if defined(__IBM_METAL__)
+#define STIMERM_MODEL(stimermm)                               \
+  __asm(                                                      \
+      "*                                                  \n" \
+      " STIMERM SET,"                                         \
+      "MF=L                                               \n" \
+      "*                                                    " \
+      : "DS"(stimermm));
+#else
+#define STIMERM_MODEL(stimermm)
+#endif
+
 #if defined(__IBM_METAL__)
 #define STIMER_WAIT(time)                                     \
   __asm(                                                      \
@@ -31,6 +49,39 @@
       : "r0", "r1", "r2", "r14", "r15");
 #else
 #define STIMER_WAIT(time)
+#endif // __IBM_METAL__
+
+#if defined(__IBM_METAL__)
+#define STIMERM(time, routine, id, plist)                     \
+  __asm(                                                      \
+      "*                                                  \n" \
+      " TAM   ,         AMODE64??                         \n" \
+      " JM    *+4+4+2   No, skip switching                \n" \
+      " OILH  2,X'8000' Set AMODE31 flag                  \n" \
+      " SAM31 ,         Set AMODE31                       \n" \
+      "*                                                  \n" \
+      " SYSSTATE PUSH       Save SYSSTATE                 \n" \
+      " SYSSTATE AMODE64=NO                               \n" \
+      "*                                                  \n" \
+      " STIMERM SET,"                                         \
+      "BINTVL=(%1),"                                          \
+      "EXIT=(%2),"                                            \
+      "ID=%0,"                                                \
+      "MF=(E,%3)           \n"                                \
+      "*                                                  \n" \
+      " TMLH  2,X'8000' Did we switch AMODE??             \n" \
+      " JNO   *+4+2     No, skip restore                  \n" \
+      " SAM64 ,         Set AMODE64                       \n" \
+      "*                                                  \n" \
+      " NILH  2,X'7FFF' Clear flag if set                 \n" \
+      "*                                                  \n" \
+      " SYSSTATE POP    Restore SYSSTATE                  \n" \
+      "*                                                    " \
+      : "=m"(*id)                                             \
+      : "r"(time), "r"(routine), "m"(plist)                   \
+      : "r0", "r1", "r2", "r14", "r15");
+#else
+#define STIMERM(time, routine, id, plist)
 #endif // __IBM_METAL__
 
 #if defined(__IBM_METAL__)
@@ -72,7 +123,8 @@ static void ecbsWait(
     int ecbListCount)
 {
 
-  union overEcb {
+  union overEcb
+  {
     volatile ECB *__ptr32 ecb;
     unsigned int word;
   } oEcb = {0};
@@ -89,8 +141,7 @@ static void ecbsWait(
 
     oEcb.word &= ~(0x80000000);
     ecbList[ecbListCount - 1] = oEcb.ecb;
-
-  } 
+  }
 
   return;
 }
@@ -111,6 +162,16 @@ static void timeWait(int interval)
   STIMER_WAIT(&interval);
 
   return;
+}
+
+static TIMER_ID timeExit(int interval, TIMER_EXIT exit)
+{
+
+  TIMER_ID id = {0};
+  STIMERM_MODEL(dsaStimermModel); // stack var
+  STIMERM(&interval, exit, &id, dsaStimermModel);
+
+  return id;
 }
 
 #endif //ECBWAIT_H

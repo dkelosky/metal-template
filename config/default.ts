@@ -81,9 +81,6 @@ export default {
                     // override options here (options are PARM=)
                     options: "'HELLO WORLD'",
                 },
-                AMSTEST: {
-                    options: "'HELLO WORLD'",
-                },
             }
         }
     },
